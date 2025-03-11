@@ -1,0 +1,57 @@
+name: JAVA Release Automation
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Enter the JAVA library release version'
+        required: true
+        default: ''
+      
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+       - uses: actions/checkout@v4
+       - name: Set up JDK 17
+         uses: actions/setup-java@v4
+         with:
+          java-version: '17'
+          distribution: 'temurin'
+          cache: maven
+       - name: Build with Maven
+         run: | 
+           mvn clean install
+           mvn --batch-mode --update-snapshots verify
+       - name: Check input version TAG
+         id: check
+         run: |
+           git status
+           VERSION="${{ github.event.inputs.environment }}"
+           echo "Release v  $VERSION"
+           if git show-ref --tags --verify --quiet "refs/tags/${VERSION}"; then
+             echo "Tag ${VERSION} exists"
+             echo "version_changed=false" >> $GITHUB_OUTPUT
+           else
+             echo "Tag ${VERSION} does not exist"
+             echo "version_changed=true" >> $GITHUB_OUTPUT
+           fi
+       - name: Set library version
+         if: ${{steps.check.outputs.version_changed == 'true'}}
+         run: |
+           VERSION="${{ github.event.inputs.environment }}"
+           mvn versions: set -DnewVersion=$VERSION -DgenerateBackupPoms=false
+           cat pom.xml
+       - name: Commit and Push Changes
+         if: ${{steps.check.outputs.version_changed == 'true'}}
+         run: |
+           git status
+           git config user.email "mayank@iabtechlab.com"
+           git config user.name "Mayank Mishra"
+           VERSION="${{ github.event.inputs.environment }}"
+           echo "Release v  $VERSION"
+           #Stage the files
+           git add .
+           # git commit -m "Release v $VERSION"
+           git status
+         env:
+           GITHUB_TOKEN: ${{secrets.PAT}}
