@@ -21,7 +21,6 @@ jobs:
        - name: Build with Maven
          run: | 
            mvn clean install
-           mvn --batch-mode --update-snapshots verify
        - name: Check input version TAG
          id: check
          run: |
